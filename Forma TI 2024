@@ -1,0 +1,98 @@
+import win32com.client as win32
+import webbrowser
+import pyautogui
+import time
+import re
+import os
+
+# Função para validar o formato do período (MM/AAAA)
+def validar_periodo(periodo):
+    padrao = r'^(0[1-9]|1[0-2])\/\d{4}$'
+    return re.match(padrao, periodo) is not None
+
+# Função para converter período (MM/AAAA) para AAAAMM
+def nomeArquivo(periodo):
+    mes, ano = periodo.split('/')
+    return ano + mes  # Retorna o ano completo seguido do mês
+
+
+# Loop para solicitar o período do relatório
+while True:
+    periodo = pyautogui.prompt('Digite o período desejado (exemplo: 06/2024):')
+    
+    # Se o usuário cancelar a prompt, encerra o loop
+    if periodo is None:
+        break
+    
+    if validar_periodo(periodo):
+        pyautogui.alert(f'Período selecionado: {periodo}')
+        
+        # Solicita o e-mail do desenvolvedor
+        emailDesenvolvedor = pyautogui.prompt('Digite o email do desenvolvedor (exemplo: seu_email@dominio.com):')
+        
+        # Se o usuário cancelar a prompt, encerra o loop
+        if emailDesenvolvedor is None:
+            break
+        
+        if emailDesenvolvedor:
+            confirmacao = pyautogui.confirm(f'Confirmar e-mail: {emailDesenvolvedor}', buttons=['Sim', 'Não'])
+            if confirmacao == 'Sim':
+                # Acessa o site
+                link = "https://www.bcb.gov.br/estabilidadefinanceira/balancetesbalancospatrimoniais"
+                webbrowser.open(link)
+                time.sleep(3)
+
+                # Navegação simulada para chegar ao campo e selecionar o período
+                for _ in range(33):
+                    pyautogui.press('tab')
+                    time.sleep(0.05)
+                
+                pyautogui.press('enter')
+                time.sleep(0.1)
+                pyautogui.write(periodo)
+                pyautogui.press('enter')
+                pyautogui.press('tab')
+                pyautogui.press('enter')
+
+                # Tempo para download
+                time.sleep(5)  
+                
+                # Tenta criar e enviar o e-mail via Outlook
+                try:
+                    outlook = win32.Dispatch('Outlook.Application')
+                    emailOutlook = outlook.CreateItem(0)
+                    emailOutlook.To = emailDesenvolvedor
+                    emailOutlook.Subject = "Relatório - Período " + periodo
+                    emailOutlook.HTMLBody = f"""
+                        <p>Olá,</p>
+                        <p>Segue o relatório referente ao período {periodo}.</p>
+                        <p>Atenciosamente.</p>
+                        """
+                        
+                    # Anexo email
+                    anexoEmail = os.path.join(os.path.expanduser('~'), 'Downloads', nomeArquivo(periodo) + 'COOPERATIVAS.zip')
+                    
+                    if os.path.exists(anexoEmail):
+                        emailOutlook.Attachments.Add(anexoEmail)
+                    else:
+                        pyautogui.alert("Arquivo de anexo não encontrado. O e-mail não será enviado.")
+                        continue  # Volta ao início do loop para permitir nova entrada
+
+
+                    # Confirma o envio do email
+                    emailOutlook.Send()
+                    pyautogui.alert("E-mail enviado com sucesso.")
+
+                    # Fecha o navegador automaticamente (Alt + F4)
+                    pyautogui.hotkey('alt', 'f4')
+
+                except Exception as e:
+                    pyautogui.alert(f"Erro ao enviar o e-mail: {str(e)}")
+
+                break  # Sai do loop se tudo ocorreu bem
+            else:
+                pyautogui.alert('Confirme o e-mail novamente.')
+        else:
+            pyautogui.alert('Nenhum e-mail foi inserido. Por favor, insira um e-mail válido.')
+    else:
+        pyautogui.alert('Período inserido está fora do padrão (MM/AAAA).')
